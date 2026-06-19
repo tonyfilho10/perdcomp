@@ -2,5 +2,10 @@
   command = "npm run build"
   publish = ".next"
 
+[build.environment]
+  # Essas variáveis precisam aparecer no bundle (NEXT_PUBLIC_*) ou nos arquivos
+  # de runtime das Netlify Functions (as demais) — não é um vazamento real.
+  SECRETS_SCAN_OMIT_KEYS = "DATABASE_URL,NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,SUPABASE_SERVICE_ROLE_KEY,SESSION_SECRET"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
