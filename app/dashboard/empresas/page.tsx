@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   Table,
   TableBody,
@@ -28,9 +28,11 @@ function formatCnpj(cnpj: string) {
 }
 
 export default async function EmpresasPage() {
-  const empresas = await prisma.empresa.findMany({
-    orderBy: { razao_social: "asc" },
-  });
+  const supabase = createAdminClient();
+  const { data: empresas } = await supabase
+    .from("empresa")
+    .select("*")
+    .order("razao_social");
 
   return (
     <div className="space-y-6">
@@ -44,7 +46,7 @@ export default async function EmpresasPage() {
         <NewEmpresaDialog />
       </div>
 
-      {empresas.length === 0 ? (
+      {!empresas || empresas.length === 0 ? (
         <p className="text-muted-foreground">Nenhuma empresa cadastrada.</p>
       ) : (
         <Table>

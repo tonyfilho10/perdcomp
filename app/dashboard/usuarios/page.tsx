@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   Table,
   TableBody,
@@ -11,9 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import { NewUsuarioDialog } from "@/components/new-usuario-dialog";
 
 export default async function UsuariosPage() {
-  const usuarios = await prisma.usuario.findMany({
-    orderBy: { nome: "asc" },
-  });
+  const supabase = createAdminClient();
+  const { data: usuarios } = await supabase
+    .from("usuario")
+    .select("*")
+    .order("nome");
 
   return (
     <div className="space-y-6">
@@ -22,7 +24,7 @@ export default async function UsuariosPage() {
         <NewUsuarioDialog />
       </div>
 
-      {usuarios.length === 0 ? (
+      {!usuarios || usuarios.length === 0 ? (
         <p className="text-muted-foreground">Nenhum usuário cadastrado.</p>
       ) : (
         <Table>

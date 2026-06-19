@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 
 const TIPOS = [
@@ -25,16 +25,17 @@ export async function criarCredito(formData: FormData) {
     throw new Error("Dados inválidos: verifique empresa, competência, tipo e valor.");
   }
 
-  await prisma.credito_tributario.create({
-    data: {
-      empresa_id,
-      competencia_origem,
-      tipo: tipo as (typeof TIPOS)[number],
-      valor_original,
-      saldo_disponivel: valor_original,
-      descricao,
-    },
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("credito_tributario").insert({
+    empresa_id,
+    competencia_origem,
+    tipo,
+    valor_original,
+    saldo_disponivel: valor_original,
+    descricao,
   });
+
+  if (error) throw new Error(error.message);
 
   revalidatePath("/dashboard/creditos");
 }

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getSelectedEmpresaId } from "@/lib/empresa-cookie";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { EmpresaSelector } from "@/components/empresa-selector";
@@ -8,16 +8,18 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [empresasRaw, selectedEmpresaId] = await Promise.all([
-    prisma.empresa.findMany({
-      where: { ativa: true },
-      orderBy: { razao_social: "asc" },
-      select: { id: true, razao_social: true, cnpj: true },
-    }),
+  const supabase = createAdminClient();
+
+  const [{ data: empresasRaw }, selectedEmpresaId] = await Promise.all([
+    supabase
+      .from("empresa")
+      .select("id, razao_social, cnpj")
+      .eq("ativa", true)
+      .order("razao_social"),
     getSelectedEmpresaId(),
   ]);
 
-  const empresas = empresasRaw.map((e) => ({
+  const empresas = (empresasRaw ?? []).map((e) => ({
     id: e.id,
     razaoSocial: e.razao_social,
     cnpj: e.cnpj,

@@ -2,7 +2,7 @@
 
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 
 const PERFIS = ["ADMIN", "SENIOR"] as const;
@@ -33,25 +33,30 @@ export async function criarUsuario(formData: FormData) {
     throw new Error("Perfil inválido.");
   }
 
-  const senhaHash = await bcrypt.hash(senha, 10);
+  const senha_hash = await bcrypt.hash(senha, 10);
 
-  await prisma.usuario.create({
-    data: {
-      email,
-      nome,
-      senha_hash: senhaHash,
-      perfil: perfil as (typeof PERFIS)[number],
-    },
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("usuario").insert({
+    email,
+    nome,
+    senha_hash,
+    perfil,
   });
+
+  if (error) throw new Error(error.message);
 
   revalidatePath("/dashboard/usuarios");
 }
 
 export async function desativarUsuario(usuarioId: string) {
   await requireAdmin();
-  await prisma.usuario.update({
-    where: { id: usuarioId },
-    data: { ativo: false },
-  });
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("usuario")
+    .update({ ativo: false })
+    .eq("id", usuarioId);
+
+  if (error) throw new Error(error.message);
+
   revalidatePath("/dashboard/usuarios");
 }

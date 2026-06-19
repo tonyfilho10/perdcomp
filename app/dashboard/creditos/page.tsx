@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getSelectedEmpresaId } from "@/lib/empresa-cookie";
 import {
   Table,
@@ -35,13 +35,14 @@ export default async function CreditosPage() {
     );
   }
 
-  const creditos = await prisma.credito_tributario.findMany({
-    where: { empresa_id: empresaId },
-    orderBy: { created_at: "desc" },
-    include: { _count: { select: { credito_utilizacao: true } } },
-  });
+  const supabase = createAdminClient();
+  const { data: creditos } = await supabase
+    .from("credito_tributario")
+    .select("*, credito_utilizacao(count)")
+    .eq("empresa_id", empresaId)
+    .order("created_at", { ascending: false });
 
-  const totalDisponivel = creditos.reduce(
+  const totalDisponivel = (creditos ?? []).reduce(
     (acc, c) => acc + Number(c.saldo_disponivel),
     0
   );
@@ -58,7 +59,7 @@ export default async function CreditosPage() {
         <NewCreditoDialog empresaId={empresaId} />
       </div>
 
-      {creditos.length === 0 ? (
+      {!creditos || creditos.length === 0 ? (
         <p className="text-muted-foreground">
           Nenhum crédito tributário cadastrado.
         </p>
@@ -75,26 +76,31 @@ export default async function CreditosPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {creditos.map((credito) => (
-              <TableRow key={credito.id}>
-                <TableCell>{credito.competencia_origem}</TableCell>
-                <TableCell>{TIPO_LABEL[credito.tipo]}</TableCell>
-                <TableCell>
-                  {formatCurrency(Number(credito.valor_original))}
-                </TableCell>
-                <TableCell>
-                  {formatCurrency(Number(credito.saldo_disponivel))}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {credito.descricao ?? "—"}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {credito._count.credito_utilizacao === 0
-                    ? "Nenhuma utilização registrada"
-                    : `${credito._count.credito_utilizacao} utilização(ões)`}
-                </TableCell>
-              </TableRow>
-            ))}
+            {creditos.map((credito) => {
+              const utilizacoes = Array.isArray(credito.credito_utilizacao)
+                ? Number(credito.credito_utilizacao[0]?.count ?? 0)
+                : 0;
+              return (
+                <TableRow key={credito.id}>
+                  <TableCell>{credito.competencia_origem}</TableCell>
+                  <TableCell>{TIPO_LABEL[credito.tipo]}</TableCell>
+                  <TableCell>
+                    {formatCurrency(Number(credito.valor_original))}
+                  </TableCell>
+                  <TableCell>
+                    {formatCurrency(Number(credito.saldo_disponivel))}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {credito.descricao ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {utilizacoes === 0
+                      ? "Nenhuma utilização registrada"
+                      : `${utilizacoes} utilização(ões)`}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       )}

@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs";
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 
 const TIPOS = ["apuracoes", "creditos", "perdcomps", "inss"] as const;
@@ -20,6 +20,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Parâmetros inválidos" }, { status: 400 });
   }
 
+  const supabase = createAdminClient();
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet(tipo);
 
@@ -34,11 +35,12 @@ export async function GET(request: Request) {
       { header: "INSS Devido", key: "inss_devido", width: 14 },
       { header: "INSS Retido", key: "inss_retido", width: 14 },
     ];
-    const rows = await prisma.apuracao_mensal.findMany({
-      where: { empresa_id: empresaId },
-      orderBy: { competencia: "desc" },
-    });
-    rows.forEach((r) =>
+    const { data: rows } = await supabase
+      .from("apuracao_mensal")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .order("competencia", { ascending: false });
+    (rows ?? []).forEach((r) =>
       sheet.addRow({
         competencia: r.competencia,
         status: r.status,
@@ -60,11 +62,12 @@ export async function GET(request: Request) {
       { header: "Saldo Disponível", key: "saldo_disponivel", width: 16 },
       { header: "Descrição", key: "descricao", width: 30 },
     ];
-    const rows = await prisma.credito_tributario.findMany({
-      where: { empresa_id: empresaId },
-      orderBy: { created_at: "desc" },
-    });
-    rows.forEach((r) =>
+    const { data: rows } = await supabase
+      .from("credito_tributario")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .order("created_at", { ascending: false });
+    (rows ?? []).forEach((r) =>
       sheet.addRow({
         competencia_origem: r.competencia_origem,
         tipo: r.tipo,
@@ -85,11 +88,12 @@ export async function GET(request: Request) {
       { header: "Status", key: "status", width: 18 },
       { header: "Data Transmissão", key: "data_transmissao", width: 18 },
     ];
-    const rows = await prisma.perdcomp.findMany({
-      where: { empresa_id: empresaId },
-      orderBy: { created_at: "desc" },
-    });
-    rows.forEach((r) =>
+    const { data: rows } = await supabase
+      .from("perdcomp")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .order("created_at", { ascending: false });
+    (rows ?? []).forEach((r) =>
       sheet.addRow({
         competencia: r.competencia,
         tributo: r.tributo,
@@ -98,7 +102,7 @@ export async function GET(request: Request) {
         credito_utilizado: Number(r.credito_utilizado),
         status: r.status,
         data_transmissao: r.data_transmissao
-          ? r.data_transmissao.toLocaleDateString("pt-BR")
+          ? new Date(r.data_transmissao).toLocaleDateString("pt-BR")
           : "",
       })
     );
@@ -111,16 +115,17 @@ export async function GET(request: Request) {
       { header: "Data Recolhimento", key: "data_recolhimento", width: 18 },
       { header: "Observação", key: "observacao", width: 30 },
     ];
-    const rows = await prisma.controle_inss.findMany({
-      where: { empresa_id: empresaId },
-      orderBy: { competencia: "desc" },
-    });
-    rows.forEach((r) =>
+    const { data: rows } = await supabase
+      .from("controle_inss")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .order("competencia", { ascending: false });
+    (rows ?? []).forEach((r) =>
       sheet.addRow({
         competencia: r.competencia,
         status: r.status,
         data_recolhimento: r.data_recolhimento
-          ? r.data_recolhimento.toLocaleDateString("pt-BR")
+          ? new Date(r.data_recolhimento).toLocaleDateString("pt-BR")
           : "",
         observacao: r.observacao ?? "",
       })

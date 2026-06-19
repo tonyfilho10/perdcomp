@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 
 const REGIMES = ["SIMPLES", "LUCRO_PRESUMIDO", "LUCRO_REAL"] as const;
@@ -23,14 +23,15 @@ export async function criarEmpresa(formData: FormData) {
     throw new Error("Regime tributário inválido");
   }
 
-  await prisma.empresa.create({
-    data: {
-      razao_social,
-      cnpj,
-      regime_tributario: regime_tributario as (typeof REGIMES)[number],
-      responsavel_interno,
-    },
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("empresa").insert({
+    razao_social,
+    cnpj,
+    regime_tributario,
+    responsavel_interno,
   });
+
+  if (error) throw new Error(error.message);
 
   revalidatePath("/dashboard/empresas");
 }
@@ -39,10 +40,13 @@ export async function desativarEmpresa(empresaId: string) {
   const user = await getCurrentUser();
   if (!user) throw new Error("Não autenticado");
 
-  await prisma.empresa.update({
-    where: { id: empresaId },
-    data: { ativa: false },
-  });
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("empresa")
+    .update({ ativa: false })
+    .eq("id", empresaId);
+
+  if (error) throw new Error(error.message);
 
   revalidatePath("/dashboard/empresas");
 }

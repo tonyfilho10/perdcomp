@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getSelectedEmpresaId } from "@/lib/empresa-cookie";
 import {
   Table,
@@ -47,22 +47,27 @@ export default async function PerdcompsPage() {
     );
   }
 
-  const [perdcomps, apuracoesRaw, creditosRaw] = await Promise.all([
-    prisma.perdcomp.findMany({
-      where: { empresa_id: empresaId },
-      orderBy: { created_at: "desc" },
-    }),
-    prisma.apuracao_mensal.findMany({
-      where: { empresa_id: empresaId },
-      orderBy: { competencia: "desc" },
-      select: { id: true, competencia: true },
-    }),
-    prisma.credito_tributario.findMany({
-      where: { empresa_id: empresaId, saldo_disponivel: { gt: 0 } },
-      orderBy: { created_at: "desc" },
-      select: { id: true, competencia_origem: true, saldo_disponivel: true },
-    }),
-  ]);
+  const supabase = createAdminClient();
+
+  const [{ data: perdcomps }, { data: apuracoesRaw }, { data: creditosRaw }] =
+    await Promise.all([
+      supabase
+        .from("perdcomp")
+        .select("*")
+        .eq("empresa_id", empresaId)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("apuracao_mensal")
+        .select("id, competencia")
+        .eq("empresa_id", empresaId)
+        .order("competencia", { ascending: false }),
+      supabase
+        .from("credito_tributario")
+        .select("id, competencia_origem, saldo_disponivel")
+        .eq("empresa_id", empresaId)
+        .gt("saldo_disponivel", 0)
+        .order("created_at", { ascending: false }),
+    ]);
 
   return (
     <div className="space-y-6">
@@ -72,8 +77,8 @@ export default async function PerdcompsPage() {
           <NewApuracaoDialog empresaId={empresaId} />
           <NewPerdcompDialog
             empresaId={empresaId}
-            apuracoes={apuracoesRaw}
-            creditos={creditosRaw.map((c) => ({
+            apuracoes={apuracoesRaw ?? []}
+            creditos={(creditosRaw ?? []).map((c) => ({
               id: c.id,
               competencia_origem: c.competencia_origem,
               saldo_disponivel: Number(c.saldo_disponivel),
@@ -82,7 +87,7 @@ export default async function PerdcompsPage() {
         </div>
       </div>
 
-      {perdcomps.length === 0 ? (
+      {!perdcomps || perdcomps.length === 0 ? (
         <p className="text-muted-foreground">Nenhuma PERDCOMP cadastrada.</p>
       ) : (
         <Table>

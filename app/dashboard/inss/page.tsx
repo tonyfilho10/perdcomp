@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getSelectedEmpresaId } from "@/lib/empresa-cookie";
 import {
   Table,
@@ -27,16 +27,18 @@ export default async function InssPage() {
     );
   }
 
-  const registros = await prisma.controle_inss.findMany({
-    where: { empresa_id: empresaId },
-    orderBy: { competencia: "desc" },
-  });
+  const supabase = createAdminClient();
+  const { data: registros } = await supabase
+    .from("controle_inss")
+    .select("*")
+    .eq("empresa_id", empresaId)
+    .order("competencia", { ascending: false });
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Controle de INSS</h1>
 
-      {registros.length === 0 ? (
+      {!registros || registros.length === 0 ? (
         <p className="text-muted-foreground">
           Nenhum registro de INSS para esta empresa.
         </p>

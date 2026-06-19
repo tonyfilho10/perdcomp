@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { getSelectedEmpresaId } from "@/lib/empresa-cookie";
 import {
@@ -33,25 +33,39 @@ export default async function DashboardPage() {
     );
   }
 
-  const [creditos, perdcompsAtivas, apuracaoAberta, inssAberto] =
-    await Promise.all([
-      prisma.credito_tributario.aggregate({
-        where: { empresa_id: empresaId },
-        _sum: { saldo_disponivel: true },
-      }),
-      prisma.perdcomp.count({
-        where: {
-          empresa_id: empresaId,
-          status: { in: ["ELABORACAO", "TRANSMITIDA", "EM_ANALISE"] },
-        },
-      }),
-      prisma.apuracao_mensal.count({
-        where: { empresa_id: empresaId, status: "RASCUNHO" },
-      }),
-      prisma.controle_inss.count({
-        where: { empresa_id: empresaId, status: "ABERTO" },
-      }),
-    ]);
+  const supabase = createAdminClient();
+
+  const [
+    { data: creditos },
+    { count: perdcompsAtivas },
+    { count: apuracaoAberta },
+    { count: inssAberto },
+  ] = await Promise.all([
+    supabase
+      .from("credito_tributario")
+      .select("saldo_disponivel")
+      .eq("empresa_id", empresaId),
+    supabase
+      .from("perdcomp")
+      .select("id", { count: "exact", head: true })
+      .eq("empresa_id", empresaId)
+      .in("status", ["ELABORACAO", "TRANSMITIDA", "EM_ANALISE"]),
+    supabase
+      .from("apuracao_mensal")
+      .select("id", { count: "exact", head: true })
+      .eq("empresa_id", empresaId)
+      .eq("status", "RASCUNHO"),
+    supabase
+      .from("controle_inss")
+      .select("id", { count: "exact", head: true })
+      .eq("empresa_id", empresaId)
+      .eq("status", "ABERTO"),
+  ]);
+
+  const totalCreditos = (creditos ?? []).reduce(
+    (acc, c) => acc + Number(c.saldo_disponivel),
+    0
+  );
 
   return (
     <div className="space-y-6">
@@ -62,26 +76,26 @@ export default async function DashboardPage() {
           <CardHeader>
             <CardDescription>Créditos Disponíveis</CardDescription>
             <CardTitle className="text-2xl">
-              {formatCurrency(Number(creditos._sum.saldo_disponivel ?? 0))}
+              {formatCurrency(totalCreditos)}
             </CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader>
             <CardDescription>PERDCOMPs Ativas</CardDescription>
-            <CardTitle className="text-2xl">{perdcompsAtivas}</CardTitle>
+            <CardTitle className="text-2xl">{perdcompsAtivas ?? 0}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader>
             <CardDescription>Apurações em Rascunho</CardDescription>
-            <CardTitle className="text-2xl">{apuracaoAberta}</CardTitle>
+            <CardTitle className="text-2xl">{apuracaoAberta ?? 0}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader>
             <CardDescription>INSS em Aberto</CardDescription>
-            <CardTitle className="text-2xl">{inssAberto}</CardTitle>
+            <CardTitle className="text-2xl">{inssAberto ?? 0}</CardTitle>
           </CardHeader>
         </Card>
       </div>

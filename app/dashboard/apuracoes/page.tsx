@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getSelectedEmpresaId } from "@/lib/empresa-cookie";
 import {
   Table,
@@ -36,10 +36,12 @@ export default async function ApuracoesPage() {
     );
   }
 
-  const apuracoes = await prisma.apuracao_mensal.findMany({
-    where: { empresa_id: empresaId },
-    orderBy: { competencia: "desc" },
-  });
+  const supabase = createAdminClient();
+  const { data: apuracoes } = await supabase
+    .from("apuracao_mensal")
+    .select("*")
+    .eq("empresa_id", empresaId)
+    .order("competencia", { ascending: false });
 
   return (
     <div className="space-y-6">
@@ -48,7 +50,7 @@ export default async function ApuracoesPage() {
         <NewApuracaoDialog empresaId={empresaId} />
       </div>
 
-      {apuracoes.length === 0 ? (
+      {!apuracoes || apuracoes.length === 0 ? (
         <p className="text-muted-foreground">Nenhuma apuração cadastrada.</p>
       ) : (
         <Table>

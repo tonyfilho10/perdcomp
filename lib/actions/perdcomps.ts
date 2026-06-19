@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 
 const TRIBUTOS = ["PIS", "COFINS", "PIS_COFINS"] as const;
@@ -33,60 +33,63 @@ export async function criarPerdcomp(formData: FormData) {
     throw new Error("Selecione o crédito a ser utilizado.");
   }
 
-  await prisma.$transaction(async (tx) => {
-    if (credito_id && credito_utilizado > 0) {
-      const credito = await tx.credito_tributario.findUnique({
-        where: { id: credito_id },
-      });
-      if (!credito || credito.empresa_id !== empresa_id) {
-        throw new Error("Crédito inválido.");
-      }
-      if (Number(credito.saldo_disponivel) < credito_utilizado) {
-        throw new Error("Saldo de crédito disponível insuficiente.");
-      }
+  const supabase = createAdminClient();
+
+  let credito: { id: string; empresa_id: string; saldo_disponivel: number } | null = null;
+  if (credito_id && credito_utilizado > 0) {
+    const { data, error } = await supabase
+      .from("credito_tributario")
+      .select("id, empresa_id, saldo_disponivel")
+      .eq("id", credito_id)
+      .single();
+    if (error || !data || data.empresa_id !== empresa_id) {
+      throw new Error("Crédito inválido.");
     }
-
-    const perdcomp = await tx.perdcomp.create({
-      data: {
-        empresa_id,
-        apuracao_id,
-        usuario_id: user.id,
-        competencia,
-        tributo: tributo as (typeof TRIBUTOS)[number],
-        debito,
-        credito_utilizado,
-      },
-    });
-
-    if (credito_id && credito_utilizado > 0) {
-      await tx.credito_tributario.update({
-        where: { id: credito_id },
-        data: { saldo_disponivel: { decrement: credito_utilizado } },
-      });
-
-      await tx.credito_utilizacao.create({
-        data: {
-          credito_id,
-          perdcomp_id: perdcomp.id,
-          valor: credito_utilizado,
-        },
-      });
+    if (Number(data.saldo_disponivel) < credito_utilizado) {
+      throw new Error("Saldo de crédito disponível insuficiente.");
     }
+    credito = data;
+  }
 
-    await tx.audit_log.create({
-      data: {
-        usuario_id: user.id,
-        acao: "CRIAR",
-        entidade: "perdcomp",
-        entidade_id: perdcomp.id,
-        dados_depois: {
-          competencia,
-          tributo,
-          debito,
-          credito_utilizado,
-        },
-      },
+  const { data: perdcomp, error: insertError } = await supabase
+    .from("perdcomp")
+    .insert({
+      empresa_id,
+      apuracao_id,
+      usuario_id: user.id,
+      competencia,
+      tributo,
+      debito,
+      credito_utilizado,
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !perdcomp) {
+    throw new Error(insertError?.message ?? "Erro ao criar PERDCOMP");
+  }
+
+  if (credito && credito_id) {
+    await supabase
+      .from("credito_tributario")
+      .update({
+        saldo_disponivel: Number(credito.saldo_disponivel) - credito_utilizado,
+      })
+      .eq("id", credito_id);
+
+    await supabase.from("credito_utilizacao").insert({
+      credito_id,
+      perdcomp_id: perdcomp.id,
+      valor: credito_utilizado,
     });
+  }
+
+  await supabase.from("audit_log").insert({
+    usuario_id: user.id,
+    acao: "CRIAR",
+    entidade: "perdcomp",
+    entidade_id: perdcomp.id,
+    dados_depois: { competencia, tributo, debito, credito_utilizado },
   });
 
   revalidatePath("/dashboard/perdcomps");
@@ -95,63 +98,70 @@ export async function criarPerdcomp(formData: FormData) {
 
 export async function transmitirPerdcomp(perdcompId: string) {
   await getAuthOrThrow();
-  await prisma.perdcomp.update({
-    where: { id: perdcompId },
-    data: { status: "TRANSMITIDA", data_transmissao: new Date() },
-  });
+  const supabase = createAdminClient();
+  await supabase
+    .from("perdcomp")
+    .update({ status: "TRANSMITIDA", data_transmissao: new Date().toISOString() })
+    .eq("id", perdcompId);
   revalidatePath("/dashboard/perdcomps");
 }
 
 export async function homologarPerdcomp(perdcompId: string) {
   await getAuthOrThrow();
-  await prisma.perdcomp.update({
-    where: { id: perdcompId },
-    data: { status: "HOMOLOGADA", data_despacho: new Date() },
-  });
+  const supabase = createAdminClient();
+  await supabase
+    .from("perdcomp")
+    .update({ status: "HOMOLOGADA", data_despacho: new Date().toISOString() })
+    .eq("id", perdcompId);
   revalidatePath("/dashboard/perdcomps");
 }
 
 export async function indeferirPerdcomp(perdcompId: string, motivo: string) {
   await getAuthOrThrow();
-  await prisma.perdcomp.update({
-    where: { id: perdcompId },
-    data: {
+  const supabase = createAdminClient();
+  await supabase
+    .from("perdcomp")
+    .update({
       status: "INDEFERIDA",
-      data_despacho: new Date(),
+      data_despacho: new Date().toISOString(),
       motivo_indeferimento: motivo,
-    },
-  });
+    })
+    .eq("id", perdcompId);
   revalidatePath("/dashboard/perdcomps");
 }
 
 export async function cancelarPerdcomp(perdcompId: string) {
   const user = await getAuthOrThrow();
+  const supabase = createAdminClient();
 
-  await prisma.$transaction(async (tx) => {
-    const utilizacoes = await tx.credito_utilizacao.findMany({
-      where: { perdcomp_id: perdcompId },
-    });
+  const { data: utilizacoes } = await supabase
+    .from("credito_utilizacao")
+    .select("credito_id, valor")
+    .eq("perdcomp_id", perdcompId);
 
-    for (const u of utilizacoes) {
-      await tx.credito_tributario.update({
-        where: { id: u.credito_id },
-        data: { saldo_disponivel: { increment: u.valor } },
-      });
+  for (const u of utilizacoes ?? []) {
+    const { data: credito } = await supabase
+      .from("credito_tributario")
+      .select("saldo_disponivel")
+      .eq("id", u.credito_id)
+      .single();
+    if (credito) {
+      await supabase
+        .from("credito_tributario")
+        .update({
+          saldo_disponivel: Number(credito.saldo_disponivel) + Number(u.valor),
+        })
+        .eq("id", u.credito_id);
     }
+  }
 
-    await tx.perdcomp.update({
-      where: { id: perdcompId },
-      data: { status: "CANCELADA" },
-    });
+  await supabase.from("perdcomp").update({ status: "CANCELADA" }).eq("id", perdcompId);
 
-    await tx.audit_log.create({
-      data: {
-        usuario_id: user.id,
-        acao: "CANCELAR",
-        entidade: "perdcomp",
-        entidade_id: perdcompId,
-      },
-    });
+  await supabase.from("audit_log").insert({
+    usuario_id: user.id,
+    acao: "CANCELAR",
+    entidade: "perdcomp",
+    entidade_id: perdcompId,
   });
 
   revalidatePath("/dashboard/perdcomps");

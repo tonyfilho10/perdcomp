@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 
 export async function criarApuracao(formData: FormData) {
@@ -15,9 +15,12 @@ export async function criarApuracao(formData: FormData) {
     throw new Error("Competência inválida. Use o formato AAAA-MM.");
   }
 
-  await prisma.apuracao_mensal.create({
-    data: { empresa_id, competencia },
-  });
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("apuracao_mensal")
+    .insert({ empresa_id, competencia });
+
+  if (error) throw new Error(error.message);
 
   revalidatePath("/dashboard/perdcomps");
   revalidatePath("/dashboard/inss");
@@ -28,30 +31,33 @@ export async function fecharApuracao(apuracaoId: string) {
   const user = await getCurrentUser();
   if (!user) throw new Error("Não autenticado");
 
-  const apuracao = await prisma.apuracao_mensal.findUnique({
-    where: { id: apuracaoId },
-  });
-  if (!apuracao) throw new Error("Apuração não encontrada.");
+  const supabase = createAdminClient();
+
+  const { data: apuracao, error: findError } = await supabase
+    .from("apuracao_mensal")
+    .select("status")
+    .eq("id", apuracaoId)
+    .single();
+
+  if (findError || !apuracao) throw new Error("Apuração não encontrada.");
   if (apuracao.status === "FECHADA") throw new Error("Apuração já está fechada.");
 
-  await prisma.$transaction(async (tx) => {
-    await tx.apuracao_mensal.update({
-      where: { id: apuracaoId },
-      data: {
-        status: "FECHADA",
-        fechado_por_id: user.id,
-        fechado_em: new Date(),
-      },
-    });
+  const { error: updateError } = await supabase
+    .from("apuracao_mensal")
+    .update({
+      status: "FECHADA",
+      fechado_por_id: user.id,
+      fechado_em: new Date().toISOString(),
+    })
+    .eq("id", apuracaoId);
 
-    await tx.audit_log.create({
-      data: {
-        usuario_id: user.id,
-        acao: "FECHAR",
-        entidade: "apuracao_mensal",
-        entidade_id: apuracaoId,
-      },
-    });
+  if (updateError) throw new Error(updateError.message);
+
+  await supabase.from("audit_log").insert({
+    usuario_id: user.id,
+    acao: "FECHAR",
+    entidade: "apuracao_mensal",
+    entidade_id: apuracaoId,
   });
 
   revalidatePath("/dashboard/apuracoes");
