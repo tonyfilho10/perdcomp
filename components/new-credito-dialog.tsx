@@ -73,7 +73,11 @@ export function NewCreditoDialog({ empresaId }: { empresaId: string }) {
             <input type="hidden" name="tipo" value={tipo} />
             <Select value={tipo} onValueChange={(v) => setTipo(v ?? "")}>
               <SelectTrigger id="tipo">
-                <SelectValue placeholder="Selecione" />
+                <SelectValue placeholder="Selecione">
+                  {(value: string | null) =>
+                    TIPOS.find((t) => t.value === value)?.label ?? "Selecione"
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {TIPOS.map((t) => (

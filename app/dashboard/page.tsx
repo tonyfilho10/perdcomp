@@ -1,13 +1,8 @@
+import { Coins, FileText, ClipboardList, Receipt } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { getSelectedEmpresaId } from "@/lib/empresa-cookie";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -67,42 +62,62 @@ export default async function DashboardPage() {
     0
   );
 
+  const stats = [
+    {
+      label: "Créditos Disponíveis",
+      value: formatCurrency(totalCreditos),
+      icon: Coins,
+      accent: "text-emerald-500 bg-emerald-500/10",
+    },
+    {
+      label: "PERDCOMPs Ativas",
+      value: perdcompsAtivas ?? 0,
+      icon: FileText,
+      accent: "text-blue-500 bg-blue-500/10",
+    },
+    {
+      label: "Apurações em Rascunho",
+      value: apuracaoAberta ?? 0,
+      icon: ClipboardList,
+      accent: "text-amber-500 bg-amber-500/10",
+    },
+    {
+      label: "INSS em Aberto",
+      value: inssAberto ?? 0,
+      icon: Receipt,
+      accent: "text-rose-500 bg-rose-500/10",
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader>
-            <CardDescription>Créditos Disponíveis</CardDescription>
-            <CardTitle className="text-2xl">
-              {formatCurrency(totalCreditos)}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>PERDCOMPs Ativas</CardDescription>
-            <CardTitle className="text-2xl">{perdcompsAtivas ?? 0}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Apurações em Rascunho</CardDescription>
-            <CardTitle className="text-2xl">{apuracaoAberta ?? 0}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>INSS em Aberto</CardDescription>
-            <CardTitle className="text-2xl">{inssAberto ?? 0}</CardTitle>
-          </CardHeader>
-        </Card>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">
+          Logado como {user?.nome} ({user?.email}) — {user?.perfil}
+        </p>
       </div>
 
-      <CardContent className="px-0 text-xs text-muted-foreground">
-        Logado como {user?.nome} ({user?.email}) — {user?.perfil}
-      </CardContent>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <Card key={stat.label}>
+              <CardContent className="flex items-center gap-4">
+                <div className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${stat.accent}`}>
+                  <Icon className="size-5" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+                  <p className="text-2xl font-semibold tracking-tight">
+                    {stat.value}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }

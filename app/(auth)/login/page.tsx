@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,10 +45,15 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-950 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>PERDCOMP Control</CardTitle>
+          <div className="flex items-center gap-2.5 mb-1">
+            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10">
+              <ShieldCheck className="size-5 text-primary" />
+            </div>
+            <CardTitle className="text-lg">PERDCOMP Control</CardTitle>
+          </div>
           <CardDescription>Controle de compensações tributárias</CardDescription>
         </CardHeader>
         <CardContent>
@@ -72,7 +78,7 @@ export default function LoginPage() {
                 required
               />
             </div>
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Entrando..." : "Entrar"}
             </Button>

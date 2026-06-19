@@ -86,7 +86,12 @@ export function NewPerdcompDialog({
             <input type="hidden" name="apuracaoId" value={apuracaoId} />
             <Select value={apuracaoId} onValueChange={(v) => setApuracaoId(v ?? "")}>
               <SelectTrigger id="apuracaoId">
-                <SelectValue placeholder="Selecione a apuração" />
+                <SelectValue placeholder="Selecione a apuração">
+                  {(value: string | null) =>
+                    apuracoes.find((a) => a.id === value)?.competencia ??
+                    "Selecione a apuração"
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {apuracoes.map((a) => (
@@ -106,7 +111,11 @@ export function NewPerdcompDialog({
             <input type="hidden" name="tributo" value={tributo} />
             <Select value={tributo} onValueChange={(v) => setTributo(v ?? "")}>
               <SelectTrigger id="tributo">
-                <SelectValue placeholder="Selecione" />
+                <SelectValue placeholder="Selecione">
+                  {(value: string | null) =>
+                    TRIBUTOS.find((t) => t.value === value)?.label ?? "Selecione"
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {TRIBUTOS.map((t) => (
@@ -126,7 +135,14 @@ export function NewPerdcompDialog({
             <input type="hidden" name="creditoId" value={creditoId} />
             <Select value={creditoId} onValueChange={(v) => setCreditoId(v ?? "")}>
               <SelectTrigger id="creditoId">
-                <SelectValue placeholder="Nenhum" />
+                <SelectValue placeholder="Nenhum">
+                  {(value: string | null) => {
+                    const c = creditos.find((c) => c.id === value);
+                    return c
+                      ? `${c.competencia_origem} — ${formatCurrency(c.saldo_disponivel)}`
+                      : "Nenhum";
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {creditos.map((c) => (

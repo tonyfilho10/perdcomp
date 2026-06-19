@@ -20,6 +20,12 @@ import {
 } from "@/components/ui/select";
 import { criarEmpresa } from "@/lib/actions/empresas";
 
+const REGIME_LABEL: Record<string, string> = {
+  SIMPLES: "Simples Nacional",
+  LUCRO_PRESUMIDO: "Lucro Presumido",
+  LUCRO_REAL: "Lucro Real",
+};
+
 export function NewEmpresaDialog() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +69,9 @@ export function NewEmpresaDialog() {
             <input type="hidden" name="regimeTributario" value={regime} />
             <Select value={regime} onValueChange={(v) => setRegime(v ?? "")}>
               <SelectTrigger id="regimeTributario">
-                <SelectValue placeholder="Selecione" />
+                <SelectValue placeholder="Selecione">
+                  {(value: string | null) => (value ? REGIME_LABEL[value] : "Selecione")}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="SIMPLES">Simples Nacional</SelectItem>

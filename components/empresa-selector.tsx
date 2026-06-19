@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Building2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -47,11 +48,15 @@ export function EmpresaSelector({
   const selected = empresas.find((e) => e.id === selectedId);
 
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-muted-foreground shrink-0">Empresa:</span>
+    <div className="flex items-center gap-3">
+      <Building2 className="size-4 text-muted-foreground" />
       <Select value={selectedId ?? undefined} onValueChange={handleChange}>
         <SelectTrigger className="w-[260px]">
-          <SelectValue placeholder="Selecione a empresa" />
+          <SelectValue placeholder="Selecione a empresa">
+            {(value: string | null) =>
+              empresas.find((e) => e.id === value)?.razaoSocial ?? "Selecione a empresa"
+            }
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           {empresas.map((empresa) => (
@@ -63,7 +68,7 @@ export function EmpresaSelector({
       </Select>
       {selected && (
         <span className="text-xs text-muted-foreground">
-          CNPJ: {formatCnpj(selected.cnpj)}
+          CNPJ {formatCnpj(selected.cnpj)}
         </span>
       )}
     </div>

@@ -20,6 +20,11 @@ import {
 } from "@/components/ui/select";
 import { criarUsuario } from "@/lib/actions/usuarios";
 
+const PERFIL_LABEL: Record<string, string> = {
+  ADMIN: "Admin",
+  SENIOR: "Senior",
+};
+
 export function NewUsuarioDialog() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +68,9 @@ export function NewUsuarioDialog() {
             <input type="hidden" name="perfil" value={perfil} />
             <Select value={perfil} onValueChange={(v) => setPerfil(v ?? "")}>
               <SelectTrigger id="perfil">
-                <SelectValue placeholder="Selecione" />
+                <SelectValue placeholder="Selecione">
+                  {(value: string | null) => (value ? PERFIL_LABEL[value] : "Selecione")}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ADMIN">Admin</SelectItem>

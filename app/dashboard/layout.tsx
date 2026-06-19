@@ -26,10 +26,10 @@ export default async function DashboardLayout({
   }));
 
   return (
-    <div className="flex h-screen bg-gray-950 overflow-hidden text-white">
+    <div className="flex h-screen bg-background overflow-hidden text-foreground">
       <SidebarNav />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="h-14 border-b border-gray-800 flex items-center px-4">
+        <header className="h-14 border-b border-border flex items-center px-6">
           <EmpresaSelector empresas={empresas} selectedId={selectedEmpresaId} />
         </header>
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
